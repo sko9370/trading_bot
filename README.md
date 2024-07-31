@@ -20,6 +20,11 @@ If you don't want to manually run the script periodically, you can set a cronjob
 - [alpaca-py example: stocks-trading-basic.ipynb](https://github.com/alpacahq/alpaca-py/blob/master/examples/stocks-trading-basic.ipynb)
 
 ## Future Works
+- [ ] Develop solution for bug where market is not open, a sell/close order for non-portfolio position is submitted but not executed yet (taking up buying power), proper portfolio allocation cannot be completed because all buy orders cannot be submitted without full buying power
+    - Enable margin to allow for order to go through during market close, but be precise enough to not actually use margin
+    - Wait to submit orders until next market open, but need to wait for allocation calculations until market open as well
+    - Will eventually resolve itself after multiple iterations if only portfolio positions are open, just show warning to rerun after market open
+- [ ] Fix edge case where market is not open, orders are submitted, and then the script is run again; script needs to check for open orders first and cancel them selectively as necessary
 - [ ] Dockerfile with environment variable for rebalancing conditions/frequency.
 - [ ] Try out Alpaca's rebalancing API
 - [x] Improve logging format

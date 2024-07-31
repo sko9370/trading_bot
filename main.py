@@ -1,4 +1,4 @@
-import math, os, csv
+import math, os, csv, time
 from dotenv import load_dotenv
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -7,8 +7,6 @@ import alpaca
 from alpaca.trading.client import *
 from alpaca.trading.requests import *
 from alpaca.common.exceptions import APIError
-
-import nest_asyncio
 
 pf_allocs = {
     'VOO': 0.25,
@@ -20,7 +18,6 @@ pf_allocs = {
     'EDV': 0.1
 }
 pf_symbols = set(pf_allocs.keys())
-pf_symbols
 
 def get_env():
     load_dotenv()
@@ -111,24 +108,46 @@ def set_portfolio(trade_client, pf_allocs):
 def create_log(closed, adjustments):
     row_dicts = closed+adjustments
     logname = datetime.now(
-        tz=ZoneInfo('America/New_York'
+        tz=ZoneInfo('America/New_York')
     ).strftime("%Y%m%d-%H%M%S") + f'-{len(row_dicts)}_trades'
-    
-    with open(logname+'.csv', 'w', newline='') as logfile:
+
+    try:
+        os.mkdir('logs')
+    except FileExistsError:
+        print('Directory already exists')
+
+    full_logname = 'logs/'+logname+'.csv'
+    with open(full_logname, 'w', newline='') as logfile:
         fieldnames = ['symbol', 'raw_alloc', 'cur_alloc', 'adj_alloc', 'order_side']
         writer = csv.DictWriter(logfile, fieldnames=fieldnames)
         writer.writeheader()
         for row_dict in row_dicts:
             writer.writerow(row_dict)
 
+    print(f'Log available at {full_logname}')
+    return full_logname
+
+def check_orders(trade_client, symbols):
+    req = GetOrdersRequest(
+        status = QueryOrderStatus.OPEN,
+        symbols = symbols
+    )
+    open_orders = trade_client.get_orders(req)
+    while len(open_orders) > 0:
+        print(f'Waiting on {len(open_orders)} open orders')
+        print([order.symbol for order in open_orders])
+        time.sleep(5)
+    print('Trades submitted')
+    return
+
 def main():
-    #nest_asyncio.apply()
     api_key, secret_key, paper = get_env()
     trade_client = get_client(api_key, secret_key, paper)
     acct_config_new = set_settings(trade_client)
     closed = close_non_portfolio(trade_client, pf_symbols)
     adjustments = set_portfolio(trade_client, pf_allocs)
-    create_log(closed, adjustments)
+    full_logname = create_log(closed, adjustments)
+    check_orders(trade_client, pf_symbols)
 
 if __name__ == '__main__':
     main()
