@@ -1,5 +1,8 @@
 # Alpaca Trading Bot
 
+## Setup
+Use the included `requirements.txt` and run `pip install -r /path/to/requirements.txt`.
+
 ## Background
 Alpaca released their v2 [API](https://github.com/alpacahq/alpaca-py) at some point after I created my first bot a few years ago. The 2024 version of my script updates the functions to use the latest API.
 
@@ -13,8 +16,11 @@ You can decide to run this rebalancing script once a week, once a month, once a 
 
 If you don't want to manually run the script periodically, you can set a cronjob to run it or create a simple python Docker container. I may work on that next.
 
+## References
+- [alpaca-py example: stocks-trading-basic.ipynb](https://github.com/alpacahq/alpaca-py/blob/master/examples/stocks-trading-basic.ipynb)
+
 ## Future Works
-- Dockerfile with environment variable for rebalancing conditions/frequency.
-- Try out Alpaca's rebalancing API
-- Improve logging format
-- Implement live stream logging for trade confirmation
+- [ ] Dockerfile with environment variable for rebalancing conditions/frequency.
+- [ ] Try out Alpaca's rebalancing API
+- [x] Improve logging format
+- [ ] Implement live stream logging for trade confirmation

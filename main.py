@@ -1,14 +1,14 @@
-import math, os
+import math, os, csv
 from dotenv import load_dotenv
-
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import alpaca
 from alpaca.trading.client import *
 from alpaca.trading.requests import *
 from alpaca.common.exceptions import APIError
 
-#import nest_asyncio
+import nest_asyncio
 
 pf_allocs = {
     'VOO': 0.25,
@@ -27,7 +27,6 @@ def get_env():
     return os.getenv('api_key'), os.getenv('secret_key'), os.getenv('paper')
 
 def get_client(api_key, secret_key, paper):
-    # for testing only
     trade_api_url = None
     trade_api_wss = None
     data_api_url = None
@@ -53,8 +52,16 @@ def close_non_portfolio(trade_client, pf_symbols):
     closed = []
     for symbol in current_symbols:
         if symbol not in pf_symbols:
-            #print(f'{symbol} not in portfolio, will be liquidated')
-            closed.append(symbol)
+            cur_alloc = trade_client.get_open_position(symbol_or_asset_id=symbol).market_value
+            closed.append(
+                {
+                    'symbol': symbol,
+                    'raw_alloc': 0,
+                    'cur_alloc': cur_alloc,
+                    'adj_alloc': cur_alloc,
+                    'order_side': OrderSide.SELL
+                }
+            )
             res = trade_client.close_position(symbol)
     return closed
 
@@ -78,12 +85,19 @@ def set_portfolio(trade_client, pf_allocs):
         elif adj_alloc <= -1.0:
             order_side = OrderSide.SELL
         # all orders must be positive
-        # should only trigger due to rounding off by 0.01 or price fluctuations while script is running
         if abs(adj_alloc) > float(acct.cash):
             adj_alloc = float(acct.cash)
         if adj_alloc < 1.0:
             continue
-        adjustments.append([symbol, raw_alloc, cur_alloc, adj_alloc, order_side])
+        adjustments.append(
+            {
+                'symbol': symbol,
+                'raw_alloc': raw_alloc,
+                'cur_alloc': cur_alloc,
+                'adj_alloc': adj_alloc,
+                'order_side': order_side
+            }
+        )
         req = MarketOrderRequest(
             symbol = symbol,
             notional = adj_alloc,
@@ -95,17 +109,17 @@ def set_portfolio(trade_client, pf_allocs):
     return adjustments
 
 def create_log(closed, adjustments):
-    logname = datetime.now().strftime("%Y%m%d-%H%M%S")
-    with open(logname+'.txt', 'w') as logfile:
-        to_write = []
-        to_write.append('The following positions were closed:\n')
-        to_write.append('\n'.join(closed))
-        to_write.append('\nThe following portfolio positions were adjusted:\n')
-        to_write.append('symbol, raw_alloc, cur_alloc, adj_alloc, order_side')
-        for adjustment in adjustments:
-            to_write.append(', '.join([str(field) for field in adjustment]))
-            to_write.append('\n')
-        logfile.writelines(to_write)
+    row_dicts = closed+adjustments
+    logname = datetime.now(
+        tz=ZoneInfo('America/New_York'
+    ).strftime("%Y%m%d-%H%M%S") + f'-{len(row_dicts)}_trades'
+    
+    with open(logname+'.csv', 'w', newline='') as logfile:
+        fieldnames = ['symbol', 'raw_alloc', 'cur_alloc', 'adj_alloc', 'order_side']
+        writer = csv.DictWriter(logfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for row_dict in row_dicts:
+            writer.writerow(row_dict)
 
 def main():
     #nest_asyncio.apply()
